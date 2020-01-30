@@ -69,3 +69,13 @@ class VchanServerTest(unittest.TestCase):
         sock = self.connect(server)
         self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)
         self.assertEqual(server.buffer_space(), 1024)
+
+    def test_disconnect_reconnect(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        sock.close()
+        sock2 = self.connect(server)
+        sock2.send(SAMPLE)
+        server.write(SAMPLE)
+        self.assertEqual(server.read(len(SAMPLE)), SAMPLE)
+        self.assertEqual(sock2.recv(len(SAMPLE)), SAMPLE)

@@ -223,7 +223,10 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                     if (count < 0) {
                         if (errno == EAGAIN || errno == EWOULDBLOCK)
                             count = 0;
-                        else {
+                        else if (errno == EPIPE) {
+                            count = 0;
+                            eof = 1;
+                        } else {
                             perror("write to socket");
                             pthread_mutex_unlock(&ctrl->mutex);
                             return 1;
