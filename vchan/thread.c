@@ -11,10 +11,10 @@
 #include "libvchan.h"
 #include "libvchan_private.h"
 
-#define CONNECT_DELAY_NS 100000
+#define CONNECT_DELAY_MS 100
 
 static void server_loop(libvchan_t *ctrl, int server_fd);
-static void comm_loop(libvchan_t *ctrl, int socket_fd);
+static int comm_loop(libvchan_t *ctrl, int socket_fd);
 
 void *libvchan__server(void *arg) {
     libvchan_t *ctrl = arg;
@@ -25,9 +25,14 @@ void *libvchan__server(void *arg) {
         return NULL;
     }
 
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
+    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
         perror("socket");
+        return NULL;
+    }
+
+    if (fcntl(server_fd, F_SETFL, O_NONBLOCK)) {
+        perror("fcntl server_fd");
         return NULL;
     }
 
@@ -35,16 +40,16 @@ void *libvchan__server(void *arg) {
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, ctrl->socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(fd, (struct sockaddr*)&addr, sizeof(addr))) {
+    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr))) {
         perror("bind");
         return NULL;
     }
-    if (listen(fd, 1)) {
+    if (listen(server_fd, 1)) {
         perror("listen");
         return NULL;
     }
 
-    server_loop(ctrl, fd);
+    server_loop(ctrl, server_fd);
 
     return NULL;
 }
@@ -59,9 +64,10 @@ void *libvchan__client(void *arg) {
 
     struct timespec ts;
     ts.tv_sec = 0;
-    ts.tv_nsec = CONNECT_DELAY_NS;
+    ts.tv_nsec = CONNECT_DELAY_MS * 1000;
 
-    for (;;) {
+    int done = 0;
+    while (!done) {
         int connected = 0;
         fprintf(stderr, "Connecting to %s\n", ctrl->socket_path);
 
@@ -89,14 +95,38 @@ void *libvchan__client(void *arg) {
             return NULL;
         }
 
-        comm_loop(ctrl, socket_fd);
-        close(socket_fd);
+        done = comm_loop(ctrl, socket_fd);
+        if (close(socket_fd)) {
+            perror("close socket");
+            return NULL;
+        }
     }
+
+    return NULL;
 }
 
 static void server_loop(libvchan_t *ctrl, int server_fd) {
-    for (;;) {
+    int done = 0;
+    while (!done) {
         fprintf(stderr, "Waiting for connection\n");
+        int connected = 0;
+
+        struct pollfd fds[1];
+        fds[0].fd = server_fd;
+        fds[0].events = POLLIN;
+        while (!connected) {
+            if (poll(fds, 1, CONNECT_DELAY_MS) < 0) {
+                perror("poll server_fd");
+                return;
+            }
+            pthread_mutex_lock(&ctrl->mutex);
+            done = ctrl->shutdown;
+            pthread_mutex_unlock(&ctrl->mutex);
+            if (done)
+                return;
+            connected = fds[0].revents & POLLIN;
+        }
+
         int socket_fd = accept(server_fd, NULL, NULL);
         if (socket_fd < 0) {
             perror("accept");
@@ -109,7 +139,7 @@ static void server_loop(libvchan_t *ctrl, int server_fd) {
             return;
         }
 
-        comm_loop(ctrl, socket_fd);
+        done = comm_loop(ctrl, socket_fd);
         if (close(socket_fd)) {
             perror("close socket");
             return;
@@ -117,7 +147,7 @@ static void server_loop(libvchan_t *ctrl, int server_fd) {
     }
 }
 
-static void comm_loop(libvchan_t *ctrl, int socket_fd) {
+static int comm_loop(libvchan_t *ctrl, int socket_fd) {
     struct pollfd fds[2];
     fds[0].fd = socket_fd;
     fds[1].fd = ctrl->user_event_pipe[0];
@@ -130,18 +160,22 @@ static void comm_loop(libvchan_t *ctrl, int socket_fd) {
             fds[0].events |= POLLIN;
         if (ring_filled(&ctrl->write_ring) > 0)
             fds[0].events |= POLLOUT;
-
         pthread_mutex_unlock(&ctrl->mutex);
 
         if (poll(fds, 2, -1) < 0) {
             perror("poll");
-            return;
+            return 1;
         }
 
         pthread_mutex_lock(&ctrl->mutex);
 
         if (fds[1].revents & POLLIN) {
             libvchan__drain_pipe(ctrl->user_event_pipe[0]);
+        }
+
+        if (ctrl->shutdown) {
+            pthread_mutex_unlock(&ctrl->mutex);
+            return 1;
         }
 
         int notify = 0;
@@ -161,7 +195,7 @@ static void comm_loop(libvchan_t *ctrl, int socket_fd) {
                         else {
                             perror("read from socket");
                             pthread_mutex_unlock(&ctrl->mutex);
-                            return;
+                            return 1;
                         }
                     } else
                         notify = 1;
@@ -185,7 +219,7 @@ static void comm_loop(libvchan_t *ctrl, int socket_fd) {
                         else {
                             perror("write to socket");
                             pthread_mutex_unlock(&ctrl->mutex);
-                            return;
+                            return 1;
                         }
                     } else if (count > 0)
                         notify = 1;
@@ -200,10 +234,11 @@ static void comm_loop(libvchan_t *ctrl, int socket_fd) {
             if (write(ctrl->socket_event_pipe[1], &byte, 1) != 1) {
                 perror("write");
                 pthread_mutex_unlock(&ctrl->mutex);
-                return;
+                return 1;
             }
         }
 
         pthread_mutex_unlock(&ctrl->mutex);
     }
+    return 0;
 }

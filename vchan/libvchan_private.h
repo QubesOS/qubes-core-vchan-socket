@@ -42,6 +42,10 @@ struct libvchan {
     // Controls access to rings and state
     pthread_mutex_t mutex;
 
+    pthread_t thread;
+    volatile int started;
+    volatile int shutdown;
+
     // Notification about changes in ring (data added/removed) from user thread
     int user_event_pipe[2];
 

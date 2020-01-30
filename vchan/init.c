@@ -93,6 +93,7 @@ libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t w
         libvchan_close(ctrl);
         return NULL;
     }
+    ctrl->started = 1;
 
     return ctrl;
 }
@@ -110,11 +111,21 @@ libvchan_t *libvchan_client_init(int domain, int port) {
         libvchan_close(ctrl);
         return NULL;
     }
+    ctrl->started = 1;
 
     return ctrl;
 }
 
 void libvchan_close(libvchan_t *ctrl) {
+    if (ctrl->started) {
+        pthread_mutex_lock(ctrl);
+        ctrl->shutdown = 1;
+        pthread_mutex_unlock(ctrl);
+        uint8_t byte;
+        write(ctrl->user_event_pipe[1], &byte, 1);
+        pthread_join(ctrl->thread, NULL);
+    }
+
     if (ctrl->socket_path)
         free(ctrl->socket_path);
 
