@@ -112,3 +112,17 @@ int libvchan__drain_pipe(int fd) {
     }
     return 0;
 }
+
+int libvchan_data_ready(libvchan_t *ctrl) {
+    pthread_mutex_lock(&ctrl->mutex);
+    int result = ring_filled(&ctrl->read_ring);
+    pthread_mutex_unlock(&ctrl->mutex);
+    return result;
+}
+
+int libvchan_buffer_space(libvchan_t *ctrl) {
+    pthread_mutex_lock(&ctrl->mutex);
+    int result = ring_available(&ctrl->write_ring);
+    pthread_mutex_unlock(&ctrl->mutex);
+    return result;
+}

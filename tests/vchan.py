@@ -15,6 +15,9 @@ int libvchan_write(libvchan_t *ctrl, const void *data, size_t size);
 int libvchan_read(libvchan_t *ctrl, void *data, size_t size);
 int libvchan_wait(libvchan_t *ctrl);
 void libvchan_close(libvchan_t *ctrl);
+
+int libvchan_data_ready(libvchan_t *ctrl);
+int libvchan_buffer_space(libvchan_t *ctrl);
 """)
 
         self.lib = self.ffi.dlopen(
@@ -68,6 +71,18 @@ class VchanServer(VchanBase):
         result = self.lib.libvchan_wait(self.ctrl)
         if result < 0:
             raise VchanException('libvchan_wait')
+
+    def data_ready(self):
+        result = self.lib.libvchan_data_ready(self.ctrl)
+        if result < 0:
+            raise VchanException('libvchan_data_ready')
+        return result
+
+    def buffer_space(self):
+        result = self.lib.libvchan_buffer_space(self.ctrl)
+        if result < 0:
+            raise VchanException('libvchan_buffer_space')
+        return result
 
     def __enter__(self):
         pass

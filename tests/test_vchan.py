@@ -50,3 +50,22 @@ class VchanServerTest(unittest.TestCase):
         self.assertEqual(server.write(SAMPLE), len(SAMPLE))
         sock = self.connect(server)
         self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)
+
+    def test_data_ready(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        self.assertEqual(server.data_ready(), 0)
+        sock.send(SAMPLE)
+        server.wait()
+        self.assertEqual(server.data_ready(), len(SAMPLE))
+        self.assertEqual(server.read(len(SAMPLE)), SAMPLE)
+        self.assertEqual(server.data_ready(), 0)
+
+    def test_buffer_space(self):
+        server = self.start_server()
+        self.assertEqual(server.buffer_space(), 1024)
+        server.write(SAMPLE)
+        self.assertEqual(server.buffer_space(), 1024 - len(SAMPLE))
+        sock = self.connect(server)
+        self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)
+        self.assertEqual(server.buffer_space(), 1024)
