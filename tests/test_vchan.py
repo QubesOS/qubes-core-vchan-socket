@@ -1,0 +1,52 @@
+import unittest
+import socket
+from concurrent.futures import ThreadPoolExecutor
+import time
+
+from .vchan import VchanServer
+
+
+SAMPLE = b'Hello World'
+
+
+class VchanServerTest(unittest.TestCase):
+    def start_server(self):
+        server = VchanServer(1, 2, 42)
+        server.wait()
+        self.addCleanup(server.close)
+        return server
+
+    def connect(self, server):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(sock.close)
+        sock.connect(server.socket_path)
+        return sock
+
+    def test_connect_and_read(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        sock.send(SAMPLE)
+        data = server.read(15)
+        self.assertEqual(data, SAMPLE)
+
+    def test_read_then_connect(self):
+        server = self.start_server()
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(server.read, len(SAMPLE))
+            time.sleep(0.1)
+            sock = self.connect(server)
+            sock.send(SAMPLE)
+            self.assertEqual(future.result(), SAMPLE)
+
+    def test_connect_and_write(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        self.assertEqual(server.write(SAMPLE), len(SAMPLE))
+        self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)
+
+    def test_write_then_connect(self):
+        server = self.start_server()
+        self.assertEqual(server.write(SAMPLE), len(SAMPLE))
+        sock = self.connect(server)
+        self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)

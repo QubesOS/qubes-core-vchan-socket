@@ -49,6 +49,13 @@ void *libvchan__server(void *arg) {
         return NULL;
     }
 
+    // Notify that we are listening
+    uint8_t byte = 0;
+    if (write(ctrl->socket_event_pipe[1], &byte, 1) != 1) {
+        perror("write");
+        return NULL;
+    }
+
     server_loop(ctrl, server_fd);
 
     return NULL;

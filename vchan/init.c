@@ -47,8 +47,12 @@ static libvchan_t *init(
 
     memset(ctrl, 0, sizeof(*ctrl));
 
+    const char *socket_dir = getenv("VCHAN_SOCKET_DIR");
+    if (!socket_dir)
+        socket_dir = SOCKET_DIR;
+
     if (asprintf(&ctrl->socket_path, "%s/vchan.%d.%d.%d.sock",
-                 SOCKET_DIR, server_domain, client_domain, port) < 0) {
+                 socket_dir, server_domain, client_domain, port) < 0) {
         perror("asprintf");
     }
 
@@ -87,8 +91,7 @@ libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t w
         return NULL;
     }
 
-    pthread_t server_thread;
-    if (pthread_create(&server_thread, NULL, libvchan__server, ctrl)) {
+    if (pthread_create(&ctrl->thread, NULL, libvchan__server, ctrl)) {
         perror("pthread_create");
         libvchan_close(ctrl);
         return NULL;
@@ -105,8 +108,7 @@ libvchan_t *libvchan_client_init(int domain, int port) {
         return NULL;
     }
 
-    pthread_t client_thread;
-    if (pthread_create(&client_thread, NULL, libvchan__client, ctrl)) {
+    if (pthread_create(&ctrl->thread, NULL, libvchan__client, ctrl)) {
         perror("pthread_create");
         libvchan_close(ctrl);
         return NULL;
@@ -118,9 +120,9 @@ libvchan_t *libvchan_client_init(int domain, int port) {
 
 void libvchan_close(libvchan_t *ctrl) {
     if (ctrl->started) {
-        pthread_mutex_lock(ctrl);
+        pthread_mutex_lock(&ctrl->mutex);
         ctrl->shutdown = 1;
-        pthread_mutex_unlock(ctrl);
+        pthread_mutex_unlock(&ctrl->mutex);
         uint8_t byte;
         write(ctrl->user_event_pipe[1], &byte, 1);
         pthread_join(ctrl->thread, NULL);
