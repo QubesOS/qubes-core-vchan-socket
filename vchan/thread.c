@@ -6,9 +6,12 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <errno.h>
+#include <time.h>
 
 #include "libvchan.h"
 #include "libvchan_private.h"
+
+#define CONNECT_DELAY_NS 100000
 
 static void server_loop(libvchan_t *ctrl, int server_fd);
 static void comm_loop(libvchan_t *ctrl, int socket_fd);
@@ -44,6 +47,51 @@ void *libvchan__server(void *arg) {
     server_loop(ctrl, fd);
 
     return NULL;
+}
+
+void *libvchan__client(void *arg) {
+    libvchan_t *ctrl = arg;
+
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, ctrl->socket_path, sizeof(addr.sun_path) - 1);
+
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = CONNECT_DELAY_NS;
+
+    for (;;) {
+        int connected = 0;
+        fprintf(stderr, "Connecting to %s\n", ctrl->socket_path);
+
+        int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (socket_fd < 0) {
+            perror("socket");
+            return NULL;
+        }
+
+        while (!connected) {
+            if (connect(socket_fd, (struct sockaddr*)&addr, sizeof(addr))) {
+                if (errno != ECONNREFUSED && errno != ENOENT) {
+                    perror("connect");
+                    return NULL;
+                }
+                nanosleep(&ts, NULL);
+            } else {
+                connected = 1;
+            }
+        }
+        fprintf(stderr, "Connected\n");
+
+        if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
+            perror("fcntl socket");
+            return NULL;
+        }
+
+        comm_loop(ctrl, socket_fd);
+        close(socket_fd);
+    }
 }
 
 static void server_loop(libvchan_t *ctrl, int server_fd) {

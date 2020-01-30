@@ -97,6 +97,23 @@ libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t w
     return ctrl;
 }
 
+libvchan_t *libvchan_client_init(int domain, int port) {
+    libvchan_t *ctrl = init(
+        get_current_domain(), domain, port, 10, 10);
+    if (!ctrl) {
+        return NULL;
+    }
+
+    pthread_t client_thread;
+    if (pthread_create(&client_thread, NULL, libvchan__client, ctrl)) {
+        perror("pthread_create");
+        libvchan_close(ctrl);
+        return NULL;
+    }
+
+    return ctrl;
+}
+
 void libvchan_close(libvchan_t *ctrl) {
     if (ctrl->socket_path)
         free(ctrl->socket_path);
@@ -116,18 +133,4 @@ void libvchan_close(libvchan_t *ctrl) {
 
     pthread_mutex_destroy(&ctrl->mutex);
     free(ctrl);
-}
-
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
-libvchan_t *libvchan_client_init(int domain, int port) {
-    libvchan_t *ctrl = init(
-        get_current_domain(), domain, port, 10, 10);
-    if (!ctrl) {
-        return NULL;
-    }
-
-    fprintf(stderr, "Connecting to %s\n", ctrl->socket_path);
-
-    return ctrl;
 }
