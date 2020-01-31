@@ -19,7 +19,6 @@ static void change_state(libvchan_t *ctrl, int state);
 
 void *libvchan__server(void *arg) {
     libvchan_t *ctrl = arg;
-    fprintf(stderr, "Starting server at %s\n", ctrl->socket_path);
 
     if (unlink(ctrl->socket_path) && errno != ENOENT ) {
         perror("unlink");
@@ -71,7 +70,6 @@ void *libvchan__client(void *arg) {
     int done = 0;
     while (!done) {
         int connected = 0;
-        fprintf(stderr, "Connecting to %s\n", ctrl->socket_path);
 
         int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (socket_fd < 0) {
@@ -90,7 +88,6 @@ void *libvchan__client(void *arg) {
                 connected = 1;
             }
         }
-        fprintf(stderr, "Connected\n");
 
         if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
             perror("fcntl socket");
@@ -113,7 +110,6 @@ void *libvchan__client(void *arg) {
 static void server_loop(libvchan_t *ctrl, int server_fd) {
     int done = 0;
     while (!done) {
-        fprintf(stderr, "Waiting for connection\n");
         int connected = 0;
 
         struct pollfd fds[1];
@@ -138,7 +134,6 @@ static void server_loop(libvchan_t *ctrl, int server_fd) {
             return;
         }
 
-        fprintf(stderr, "Got connection\n");
         if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
             perror("fcntl socket");
             return;
@@ -234,7 +229,6 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                         }
                     } else if (count > 0)
                         notify = 1;
-                    fprintf(stderr, "write %d\n", count);
                     ring_advance_start(&ctrl->write_ring, count);
                 }
             }
