@@ -89,6 +89,24 @@ class VchanServerTest(unittest.TestCase, VchanTestMixin):
         self.assertEqual(sock2.recv(len(SAMPLE)), SAMPLE)
 
 
+class VchanBufferTest(unittest.TestCase, VchanTestMixin):
+    def test_read_less(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        sock.send(SAMPLE)
+        self.assertEqual(server.read(len(SAMPLE) * 2), SAMPLE)
+
+    def test_recv_all(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        sock.send(SAMPLE)
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(server.recv, len(SAMPLE) * 2)
+            time.sleep(0.1)
+            sock.send(SAMPLE)
+            self.assertEqual(future.result(), SAMPLE * 2)
+
+
 class VchanClientTest(unittest.TestCase, VchanTestMixin):
     def test_client_connect_and_send(self):
         server = self.start_server()

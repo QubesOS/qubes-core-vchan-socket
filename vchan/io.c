@@ -7,23 +7,44 @@
 #include "libvchan.h"
 #include "libvchan_private.h"
 
+static int do_read(libvchan_t *ctrl, void *data,
+                   size_t min_size, size_t max_size);
+static int do_write(libvchan_t *ctrl, const void *data,
+                    size_t min_size, size_t max_size);
+
 int libvchan_read(libvchan_t *ctrl, void *data, size_t size) {
+    return do_read(ctrl, data, 1, size);
+}
+
+int libvchan_recv(libvchan_t *ctrl, void *data, size_t size) {
+    return do_read(ctrl, data, size, size);
+}
+
+int libvchan_write(libvchan_t *ctrl, const void *data, size_t size) {
+    return do_write(ctrl, data, 1, size);
+}
+
+int libvchan_send(libvchan_t *ctrl, const void *data, size_t size) {
+    return do_write(ctrl, data, size, size);
+}
+
+static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_size) {
     pthread_mutex_lock(&ctrl->mutex);
 
-    size_t fill = ring_filled(&ctrl->read_ring);
-    while (fill == 0) {
+    size_t size = ring_filled(&ctrl->read_ring);
+    while (size < min_size) {
         pthread_mutex_unlock(&ctrl->mutex);
         if (libvchan_wait(ctrl) < 0) {
             return -1;
         }
         pthread_mutex_lock(&ctrl->mutex);
-        fill = ring_filled(&ctrl->read_ring);
+        size = ring_filled(&ctrl->read_ring);
     }
 
     libvchan__drain_pipe(ctrl->socket_event_pipe[0]);
 
-    if (size > fill) {
-        size = fill;
+    if (size > max_size) {
+        size = max_size;
     }
 
     size_t total = 0;
@@ -48,21 +69,22 @@ int libvchan_read(libvchan_t *ctrl, void *data, size_t size) {
     return total;
 }
 
-int libvchan_write(libvchan_t *ctrl, const void *data, size_t size) {
+static int do_write(libvchan_t *ctrl, const void *data,
+                    size_t min_size, size_t max_size) {
     pthread_mutex_lock(&ctrl->mutex);
 
-    size_t avail = ring_available(&ctrl->write_ring);
-    while (avail == 0) {
+    size_t size = ring_available(&ctrl->write_ring);
+    while (size < min_size) {
         pthread_mutex_unlock(&ctrl->mutex);
         if (libvchan_wait(ctrl) < 0) {
             return -1;
         }
         pthread_mutex_lock(&ctrl->mutex);
-        avail = ring_available(&ctrl->write_ring);
+        size = ring_available(&ctrl->write_ring);
     }
 
-    if (size > avail) {
-        size = avail;
+    if (size > max_size) {
+        size = max_size;
     }
 
     size_t total = 0;

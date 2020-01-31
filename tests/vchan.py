@@ -19,7 +19,9 @@ typedef struct libvchan libvchan_t;
 libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t write_min);
 libvchan_t *libvchan_client_init(int domain, int port);
 int libvchan_write(libvchan_t *ctrl, const void *data, size_t size);
+int libvchan_send(libvchan_t *ctrl, const void *data, size_t size);
 int libvchan_read(libvchan_t *ctrl, void *data, size_t size);
+int libvchan_recv(libvchan_t *ctrl, void *data, size_t size);
 int libvchan_wait(libvchan_t *ctrl);
 void libvchan_close(libvchan_t *ctrl);
 int libvchan_fd_for_select(libvchan_t *ctrl);
@@ -45,11 +47,24 @@ int libvchan_buffer_space(libvchan_t *ctrl);
             raise VchanException('libvchan_write')
         return result
 
+    def send(self, data: bytes) -> int:
+        result = self.lib.libvchan_send(self.ctrl, data, len(data))
+        if result < 0:
+            raise VchanException('libvchan_send')
+        return result
+
     def read(self, size: int) -> bytes:
         buf = self.ffi.new('char[]', size)
         result = self.lib.libvchan_read(self.ctrl, buf, size)
         if result < 0:
             raise VchanException('libvchan_read')
+        return self.ffi.unpack(buf, result)
+
+    def recv(self, size: int) -> bytes:
+        buf = self.ffi.new('char[]', size)
+        result = self.lib.libvchan_recv(self.ctrl, buf, size)
+        if result < 0:
+            raise VchanException('libvchan_recv')
         return self.ffi.unpack(buf, result)
 
     def wait(self):
