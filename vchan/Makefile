@@ -1,7 +1,6 @@
 
 CC ?= gcc
-# TODO -Werror
-CFLAGS += -g -Wall -Wextra -fPIC -O2
+CFLAGS += -g -Wall -Wextra -Werror -fPIC -O2
 
 LIBVCHAN_OBJS = init.o thread.o io.o
 LIBS = -pthread
