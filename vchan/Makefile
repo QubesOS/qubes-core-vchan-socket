@@ -1,11 +1,14 @@
 
+PREFIX ?= /usr
+LIBDIR ?= $(PREFIX)/lib
+INCLUDEDIR ?= $(PREFIX)/include
 CC ?= gcc
 CFLAGS += -g -Wall -Wextra -Werror -fPIC -O2
 
 LIBVCHAN_OBJS = init.o thread.o io.o
 LIBS = -pthread
 
-all: libvchan-socket.so node node-select
+all: libvchan-socket.so vchan-socket.pc node node-select
 
 $(LIBVCHAN_OBJS): libvchan.h libvchan_private.h
 
@@ -20,3 +23,13 @@ node: node.o libvchan-socket.a
 
 node-select: node-select.o libvchan-socket.a
 	$(CC) $(LDFLAGS) $(LIBS) -o $@ $^
+
+clean:
+	rm -f *.o *so *~ client server node node-select
+
+vchan-socket.pc: vchan-socket.pc.in
+	sed -e "s/@VERSION@/`cat ../version`/" \
+		-e "s:@PREFIX@:$(PREFIX):" \
+		-e "s:@LIBDIR@:$(LIBDIR):" \
+		-e "s:@INCLUDEDIR@:$(INCLUDEDIR):" \
+		$< > $@

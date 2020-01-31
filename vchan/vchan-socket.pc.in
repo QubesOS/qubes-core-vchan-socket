@@ -1,0 +1,10 @@
+prefix=@PREFIX@
+exec_prefix=${prefix}
+includedir=@INCLUDEDIR@
+libdir=@LIBDIR@
+
+Name: vchan-socket
+Description: The vchan communication library (socket version)
+Version: @VERSION@
+Cflags: -I${includedir}/vchan-socket
+Libs: -lvchan-socket -pthread
