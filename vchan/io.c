@@ -126,3 +126,10 @@ int libvchan_buffer_space(libvchan_t *ctrl) {
     pthread_mutex_unlock(&ctrl->mutex);
     return result;
 }
+
+int libvchan_is_open(libvchan_t *ctrl) {
+    pthread_mutex_lock(&ctrl->mutex);
+    int result = ctrl->state;
+    pthread_mutex_unlock(&ctrl->mutex);
+    return result;
+}

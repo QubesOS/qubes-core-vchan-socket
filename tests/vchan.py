@@ -1,5 +1,11 @@
 from cffi import FFI
 import os
+import time
+
+
+VCHAN_DISCONNECTED = 0
+VCHAN_CONNECTED = 1
+VCHAN_WAITING = 2
 
 
 class VchanBase:
@@ -15,6 +21,8 @@ int libvchan_write(libvchan_t *ctrl, const void *data, size_t size);
 int libvchan_read(libvchan_t *ctrl, void *data, size_t size);
 int libvchan_wait(libvchan_t *ctrl);
 void libvchan_close(libvchan_t *ctrl);
+int libvchan_fd_for_select(libvchan_t *ctrl);
+int libvchan_is_open(libvchan_t *ctrl);
 
 int libvchan_data_ready(libvchan_t *ctrl);
 int libvchan_buffer_space(libvchan_t *ctrl);
@@ -71,6 +79,16 @@ class VchanServer(VchanBase):
         result = self.lib.libvchan_wait(self.ctrl)
         if result < 0:
             raise VchanException('libvchan_wait')
+
+    def state(self) -> int:
+        return self.lib.libvchan_is_open(self.ctrl)
+
+    def fd_for_select(self) -> int:
+        return self.lib.libvchan_fd_for_select(self.ctrl)
+
+    def wait_for_state(self, state: int):
+        while self.state() != state:
+            time.sleep(0.1)
 
     def data_ready(self):
         result = self.lib.libvchan_data_ready(self.ctrl)

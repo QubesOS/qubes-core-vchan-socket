@@ -43,8 +43,15 @@ struct libvchan {
     pthread_mutex_t mutex;
 
     pthread_t thread;
-    volatile int started;
+
+    // Thread started
+    volatile int thread_started;
+
+    // Thread exiting / exited
     volatile int shutdown;
+
+    // For libvchan_is_open
+    volatile int state;
 
     // Notification about changes in ring (data added/removed) from user thread
     int user_event_pipe[2];

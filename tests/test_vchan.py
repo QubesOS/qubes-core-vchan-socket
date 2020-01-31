@@ -3,7 +3,8 @@ import socket
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-from .vchan import VchanServer
+from .vchan import VchanServer, \
+    VCHAN_WAITING, VCHAN_DISCONNECTED, VCHAN_CONNECTED
 
 
 SAMPLE = b'Hello World'
@@ -12,7 +13,7 @@ SAMPLE = b'Hello World'
 class VchanServerTest(unittest.TestCase):
     def start_server(self):
         server = VchanServer(1, 2, 42)
-        server.wait()
+        server.wait_for_state(VCHAN_WAITING)
         self.addCleanup(server.close)
         return server
 
@@ -20,6 +21,7 @@ class VchanServerTest(unittest.TestCase):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.addCleanup(sock.close)
         sock.connect(server.socket_path)
+        server.wait_for_state(VCHAN_CONNECTED)
         return sock
 
     def test_connect_and_read(self):
@@ -74,6 +76,7 @@ class VchanServerTest(unittest.TestCase):
         server = self.start_server()
         sock = self.connect(server)
         sock.close()
+        server.wait_for_state(VCHAN_DISCONNECTED)
         sock2 = self.connect(server)
         sock2.send(SAMPLE)
         server.write(SAMPLE)

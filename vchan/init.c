@@ -81,6 +81,8 @@ static libvchan_t *init(
         return NULL;
     }
 
+    ctrl->state = VCHAN_DISCONNECTED;
+
     return ctrl;
 }
 
@@ -96,7 +98,7 @@ libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t w
         libvchan_close(ctrl);
         return NULL;
     }
-    ctrl->started = 1;
+    ctrl->thread_started = 1;
 
     return ctrl;
 }
@@ -113,13 +115,13 @@ libvchan_t *libvchan_client_init(int domain, int port) {
         libvchan_close(ctrl);
         return NULL;
     }
-    ctrl->started = 1;
+    ctrl->thread_started = 1;
 
     return ctrl;
 }
 
 void libvchan_close(libvchan_t *ctrl) {
-    if (ctrl->started) {
+    if (ctrl->thread_started) {
         pthread_mutex_lock(&ctrl->mutex);
         ctrl->shutdown = 1;
         pthread_mutex_unlock(&ctrl->mutex);
@@ -146,4 +148,8 @@ void libvchan_close(libvchan_t *ctrl) {
 
     pthread_mutex_destroy(&ctrl->mutex);
     free(ctrl);
+}
+
+EVTCHN libvchan_fd_for_select(libvchan_t *ctrl) {
+    return ctrl->socket_event_pipe[0];
 }

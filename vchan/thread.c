@@ -15,6 +15,7 @@
 
 static void server_loop(libvchan_t *ctrl, int server_fd);
 static int comm_loop(libvchan_t *ctrl, int socket_fd);
+static void change_state(libvchan_t *ctrl, int state);
 
 void *libvchan__server(void *arg) {
     libvchan_t *ctrl = arg;
@@ -49,13 +50,7 @@ void *libvchan__server(void *arg) {
         return NULL;
     }
 
-    // Notify that we are listening
-    uint8_t byte = 0;
-    if (write(ctrl->socket_event_pipe[1], &byte, 1) != 1) {
-        perror("write");
-        return NULL;
-    }
-
+    change_state(ctrl, VCHAN_WAITING);
     server_loop(ctrl, server_fd);
 
     return NULL;
@@ -102,7 +97,10 @@ void *libvchan__client(void *arg) {
             return NULL;
         }
 
+        change_state(ctrl, VCHAN_CONNECTED);
         done = comm_loop(ctrl, socket_fd);
+        change_state(ctrl, VCHAN_DISCONNECTED);
+
         if (close(socket_fd)) {
             perror("close socket");
             return NULL;
@@ -146,7 +144,10 @@ static void server_loop(libvchan_t *ctrl, int server_fd) {
             return;
         }
 
+        change_state(ctrl, VCHAN_CONNECTED);
         done = comm_loop(ctrl, socket_fd);
+        change_state(ctrl, VCHAN_DISCONNECTED);
+
         if (close(socket_fd)) {
             perror("close socket");
             return;
@@ -251,4 +252,10 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
         pthread_mutex_unlock(&ctrl->mutex);
     }
     return 0;
+}
+
+void change_state(libvchan_t *ctrl, int state) {
+    pthread_mutex_lock(&ctrl->mutex);
+    ctrl->state = state;
+    pthread_mutex_unlock(&ctrl->mutex);
 }
