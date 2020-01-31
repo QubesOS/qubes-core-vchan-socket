@@ -105,7 +105,7 @@ libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t w
 
 libvchan_t *libvchan_client_init(int domain, int port) {
     libvchan_t *ctrl = init(
-        get_current_domain(), domain, port, 10, 10);
+        domain, get_current_domain(), port, 1024, 1024);
     if (!ctrl) {
         return NULL;
     }

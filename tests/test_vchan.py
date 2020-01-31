@@ -3,14 +3,14 @@ import socket
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-from .vchan import VchanServer, \
+from .vchan import VchanServer, VchanClient, \
     VCHAN_WAITING, VCHAN_DISCONNECTED, VCHAN_CONNECTED
 
 
 SAMPLE = b'Hello World'
 
 
-class VchanServerTest(unittest.TestCase):
+class VchanTestMixin():
     def start_server(self):
         server = VchanServer(1, 2, 42)
         server.wait_for_state(VCHAN_WAITING)
@@ -24,6 +24,11 @@ class VchanServerTest(unittest.TestCase):
         server.wait_for_state(VCHAN_CONNECTED)
         return sock
 
+    def start_client(self):
+        return VchanClient(2, 1, 42)
+
+
+class VchanServerTest(unittest.TestCase, VchanTestMixin):
     def test_connect_and_read(self):
         server = self.start_server()
         sock = self.connect(server)
@@ -82,3 +87,11 @@ class VchanServerTest(unittest.TestCase):
         server.write(SAMPLE)
         self.assertEqual(server.read(len(SAMPLE)), SAMPLE)
         self.assertEqual(sock2.recv(len(SAMPLE)), SAMPLE)
+
+
+class VchanClientTest(unittest.TestCase, VchanTestMixin):
+    def test_client_connect_and_send(self):
+        server = self.start_server()
+        client = self.start_client()
+        client.write(SAMPLE)
+        self.assertEqual(server.read(len(SAMPLE)), SAMPLE)

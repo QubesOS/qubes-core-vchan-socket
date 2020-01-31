@@ -17,6 +17,7 @@ struct libvchan;
 typedef struct libvchan libvchan_t;
 
 libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t write_min);
+libvchan_t *libvchan_client_init(int domain, int port);
 int libvchan_write(libvchan_t *ctrl, const void *data, size_t size);
 int libvchan_read(libvchan_t *ctrl, void *data, size_t size);
 int libvchan_wait(libvchan_t *ctrl);
@@ -31,31 +32,7 @@ int libvchan_buffer_space(libvchan_t *ctrl);
         self.lib = self.ffi.dlopen(
             os.path.join(os.path.dirname(__file__), '..', 'vchan',
                          'libvchan-socket.so'))
-
-
-class VchanException(Exception):
-    pass
-
-
-class VchanServer(VchanBase):
-    def __init__(
-            self,
-            domain=0, remote_domain=0, port=0,
-            socket_dir='/tmp',
-            read_min=1024,
-            write_min=1024,
-    ):
-        super().__init__()
-        os.environ['VCHAN_DOMAIN'] = str(domain)
-        os.environ['VCHAN_SOCKET_DIR'] = socket_dir
-
-        self.socket_path = '{}/vchan.{}.{}.{}.sock'.format(
-            socket_dir, domain, remote_domain, port)
-
-        self.ctrl = self.lib.libvchan_server_init(
-            remote_domain, port, read_min, write_min)
-        if self.ctrl == self.ffi.NULL:
-            raise VchanException('libvchan_server_init')
+        self.ctrl = None
 
     def close(self):
         if self.ctrl is not None:
@@ -107,3 +84,47 @@ class VchanServer(VchanBase):
 
     def __exit__(self, _type, value, traceback):
         self.close()
+
+
+class VchanException(Exception):
+    pass
+
+
+class VchanServer(VchanBase):
+    def __init__(
+            self,
+            domain=0, remote_domain=0, port=0,
+            socket_dir='/tmp',
+            read_min=1024,
+            write_min=1024,
+    ):
+        super().__init__()
+        os.environ['VCHAN_DOMAIN'] = str(domain)
+        os.environ['VCHAN_SOCKET_DIR'] = socket_dir
+
+        self.socket_path = '{}/vchan.{}.{}.{}.sock'.format(
+            socket_dir, domain, remote_domain, port)
+
+        self.ctrl = self.lib.libvchan_server_init(
+            remote_domain, port, read_min, write_min)
+        if self.ctrl == self.ffi.NULL:
+            raise VchanException('libvchan_server_init')
+
+
+class VchanClient(VchanBase):
+    def __init__(
+            self,
+            domain=0, remote_domain=0, port=0,
+            socket_dir='/tmp',
+    ):
+        super().__init__()
+        os.environ['VCHAN_DOMAIN'] = str(domain)
+        os.environ['VCHAN_SOCKET_DIR'] = socket_dir
+
+        self.socket_path = '{}/vchan.{}.{}.{}.sock'.format(
+            socket_dir, remote_domain, domain, port)
+
+        self.ctrl = self.lib.libvchan_client_init(
+            remote_domain, port)
+        if self.ctrl == self.ffi.NULL:
+            raise VchanException('libvchan_client_init')
