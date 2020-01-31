@@ -8,6 +8,13 @@ from .vchan import VchanServer, VchanClient, \
 
 
 SAMPLE = b'Hello World'
+BIG_SAMPLE = bytes([
+    b'abcdefghijklmnopqrstuvwxyz'[i % 26]
+    for i in range(2048)
+])
+
+# default buffer size for server and client
+BUF_SIZE = 1024
 
 
 class VchanTestMixin():
@@ -105,6 +112,13 @@ class VchanBufferTest(unittest.TestCase, VchanTestMixin):
             time.sleep(0.1)
             sock.send(SAMPLE)
             self.assertEqual(future.result(), SAMPLE * 2)
+
+    def test_send_big(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        sock.send(BIG_SAMPLE[:BUF_SIZE+10])
+        self.assertEqual(server.read(BUF_SIZE+10), BIG_SAMPLE[:BUF_SIZE])
+        self.assertEqual(server.read(10), BIG_SAMPLE[BUF_SIZE:BUF_SIZE+10])
 
 
 class VchanClientTest(unittest.TestCase, VchanTestMixin):
