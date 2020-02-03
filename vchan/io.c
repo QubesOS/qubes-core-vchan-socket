@@ -116,7 +116,7 @@ int libvchan_wait(libvchan_t *ctrl) {
     fds[0].fd = ctrl->socket_event_pipe[0];
     fds[0].events = POLLIN;
     if (poll(fds, 1, -1) < 0) {
-        perror("poll");
+        perror("poll wait");
         return -1;
     }
 

@@ -28,7 +28,6 @@ class VchanTestMixin():
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.addCleanup(sock.close)
         sock.connect(server.socket_path)
-        server.wait_for_state(VCHAN_CONNECTED)
         return sock
 
     def start_client(self):
@@ -70,8 +69,7 @@ class VchanServerTest(unittest.TestCase, VchanTestMixin):
         sock = self.connect(server)
         self.assertEqual(server.data_ready(), 0)
         sock.send(SAMPLE)
-        server.wait()
-        self.assertEqual(server.data_ready(), len(SAMPLE))
+        server.wait_for(lambda: server.data_ready() == len(SAMPLE))
         self.assertEqual(server.read(len(SAMPLE)), SAMPLE)
         self.assertEqual(server.data_ready(), 0)
 

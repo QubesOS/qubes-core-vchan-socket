@@ -78,9 +78,12 @@ int libvchan_buffer_space(libvchan_t *ctrl);
     def fd_for_select(self) -> int:
         return self.lib.libvchan_fd_for_select(self.ctrl)
 
+    def wait_for(self, pred):
+        while not pred():
+            self.wait()
+
     def wait_for_state(self, state: int):
-        while self.state() != state:
-            time.sleep(0.1)
+        self.wait_for(lambda: self.state() == state)
 
     def data_ready(self):
         result = self.lib.libvchan_data_ready(self.ctrl)

@@ -166,7 +166,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
         pthread_mutex_unlock(&ctrl->mutex);
 
         if (poll(fds, 2, -1) < 0) {
-            perror("poll");
+            perror("poll comm_loop");
             return 1;
         }
 
@@ -251,5 +251,8 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
 void change_state(libvchan_t *ctrl, int state) {
     pthread_mutex_lock(&ctrl->mutex);
     ctrl->state = state;
+    uint8_t byte = 0;
+    if (write(ctrl->socket_event_pipe[1], &byte, 1) != 1)
+        perror("write");
     pthread_mutex_unlock(&ctrl->mutex);
 }
