@@ -126,7 +126,10 @@ void libvchan_close(libvchan_t *ctrl) {
         ctrl->shutdown = 1;
         pthread_mutex_unlock(&ctrl->mutex);
         uint8_t byte;
-        write(ctrl->user_event_pipe[1], &byte, 1);
+        if (write(ctrl->user_event_pipe[1], &byte, 1) != 1) {
+            perror("write close");
+            return;
+        }
         pthread_join(ctrl->thread, NULL);
     }
 
