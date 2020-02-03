@@ -1,0 +1,8 @@
+#!/bin/sh
+
+: "${PYTHON:=python3}"
+: "${ROOTDIR:=.}"
+
+make clean
+make all
+"${PYTHON}" -m unittest discover -p 'test_*.py' -v "$@"
