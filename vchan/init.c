@@ -63,13 +63,8 @@ static libvchan_t *init(
         return NULL;
     }
 
-    ctrl->read_ring.size = read_min + 1;
-    ctrl->read_ring.data = malloc(ctrl->read_ring.size);
-
-    ctrl->write_ring.size = write_min + 1;
-    ctrl->write_ring.data = malloc(ctrl->write_ring.size);
-
-    if (!ctrl->read_ring.data || !ctrl->write_ring.data) {
+    if (ring_init(&ctrl->read_ring, read_min) ||
+        ring_init(&ctrl->write_ring, write_min)) {
         perror("malloc");
         libvchan_close(ctrl);
         return NULL;
@@ -145,9 +140,9 @@ void libvchan_close(libvchan_t *ctrl) {
         close(ctrl->socket_event_pipe[1]);
     }
     if (ctrl->read_ring.data)
-        free(ctrl->read_ring.data);
-    if (ctrl->read_ring.data)
-        free(ctrl->write_ring.data);
+        ring_destroy(&ctrl->read_ring);
+    if (ctrl->write_ring.data)
+        ring_destroy(&ctrl->write_ring);
 
     pthread_mutex_destroy(&ctrl->mutex);
     free(ctrl);
