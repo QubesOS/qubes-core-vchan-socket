@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdio.h>
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -18,9 +19,16 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd);
 static void change_state(libvchan_t *ctrl, int state);
 
 void *libvchan__server(void *arg) {
+    sigset_t set;
+    sigfillset(&set);
+    if (pthread_sigmask(SIG_BLOCK, &set, NULL)) {
+        perror("pthread_sigmask");
+        return NULL;
+    }
+
     libvchan_t *ctrl = arg;
 
-    if (unlink(ctrl->socket_path) && errno != ENOENT ) {
+    if (unlink(ctrl->socket_path) && errno != ENOENT) {
         perror("unlink");
         return NULL;
     }
@@ -56,6 +64,13 @@ void *libvchan__server(void *arg) {
 }
 
 void *libvchan__client(void *arg) {
+    sigset_t set;
+    sigfillset(&set);
+    if (pthread_sigmask(SIG_BLOCK, &set, NULL)) {
+        perror("pthread_sigmask");
+        return NULL;
+    }
+
     libvchan_t *ctrl = arg;
 
     struct sockaddr_un addr;
