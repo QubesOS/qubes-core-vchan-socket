@@ -47,16 +47,8 @@ static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_siz
         size = max_size;
     }
 
-    size_t total = 0;
-    while (total < size) {
-        size_t fill_contig = ring_filled_contig(&ctrl->read_ring);
-        if (fill_contig > size - total)
-            fill_contig = size - total;
-        memcpy(data + total, &ctrl->read_ring.data[ctrl->read_ring.start],
-               fill_contig);
-        ring_advance_start(&ctrl->read_ring, fill_contig);
-        total += fill_contig;
-    }
+    memcpy(data, ring_head(&ctrl->read_ring), size);
+    ring_advance_head(&ctrl->read_ring, size);
 
     pthread_mutex_unlock(&ctrl->mutex);
 
@@ -66,7 +58,7 @@ static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_siz
         return -1;
     }
 
-    return total;
+    return size;
 }
 
 static int do_write(libvchan_t *ctrl, const void *data,
@@ -87,18 +79,8 @@ static int do_write(libvchan_t *ctrl, const void *data,
         size = max_size;
     }
 
-    size_t total = 0;
-    while (total < size) {
-        size_t avail_contig = ring_available_contig(&ctrl->write_ring);
-
-        if (avail_contig > size - total)
-            avail_contig = size - total;
-        memcpy(&ctrl->write_ring.data[ctrl->write_ring.end],
-               data + total,
-               avail_contig);
-        ring_advance_end(&ctrl->write_ring, avail_contig);
-        total += avail_contig;
-    }
+    memcpy(ring_tail(&ctrl->write_ring), data, size);
+    ring_advance_tail(&ctrl->write_ring, size);
 
     pthread_mutex_unlock(&ctrl->mutex);
 
@@ -108,7 +90,7 @@ static int do_write(libvchan_t *ctrl, const void *data,
         return -1;
     }
 
-    return total;
+    return size;
 }
 
 int libvchan_wait(libvchan_t *ctrl) {

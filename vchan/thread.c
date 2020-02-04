@@ -185,52 +185,46 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
 
         // Read from socket into read_ring
         if (fds[0].revents & POLLIN) {
-            for (int i = 0; i < 2; i++) {
-                int cap = ring_available_contig(&ctrl->read_ring);
-                if (cap > 0) {
-                    int count = read(
-                        socket_fd, &ctrl->read_ring.data[ctrl->read_ring.end], cap);
-                    if (count == 0) {
-                        eof = 1;
-                    } else if (count < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK)
-                            count = 0;
-                        else {
-                            perror("read from socket");
-                            pthread_mutex_unlock(&ctrl->mutex);
-                            return 1;
-                        }
-                    } else
-                        notify = 1;
-                    ring_advance_end(&ctrl->read_ring, count);
-                }
+            int size = ring_available(&ctrl->read_ring);
+            if (size > 0) {
+                int count = read(
+                    socket_fd, ring_tail(&ctrl->read_ring), size);
+                if (count == 0) {
+                    eof = 1;
+                } else if (count < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK)
+                        count = 0;
+                    else {
+                        perror("read from socket");
+                        pthread_mutex_unlock(&ctrl->mutex);
+                        return 1;
+                    }
+                } else
+                    notify = 1;
+                ring_advance_tail(&ctrl->read_ring, count);
             }
         }
 
         if (fds[0].revents & POLLOUT) {
             // Write from write_ring into socket
-            for (int i = 0; i < 2; i++) {
-                int fill = ring_filled_contig(&ctrl->write_ring);
-                if (fill > 0) {
-                    int count = write(
-                        socket_fd,
-                        &ctrl->write_ring.data[ctrl->write_ring.start],
-                        fill);
-                    if (count < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK)
-                            count = 0;
-                        else if (errno == EPIPE) {
-                            count = 0;
-                            eof = 1;
-                        } else {
-                            perror("write to socket");
-                            pthread_mutex_unlock(&ctrl->mutex);
-                            return 1;
-                        }
-                    } else if (count > 0)
-                        notify = 1;
-                    ring_advance_start(&ctrl->write_ring, count);
-                }
+            int size = ring_filled(&ctrl->write_ring);
+            if (size > 0) {
+                int count = write(
+                    socket_fd, ring_head(&ctrl->write_ring), size);
+                if (count < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK)
+                        count = 0;
+                    else if (errno == EPIPE) {
+                        count = 0;
+                        eof = 1;
+                    } else {
+                        perror("write to socket");
+                        pthread_mutex_unlock(&ctrl->mutex);
+                        return 1;
+                    }
+                } else if (count > 0)
+                    notify = 1;
+                ring_advance_head(&ctrl->write_ring, count);
             }
         }
 

@@ -1,65 +1,47 @@
 #ifndef _RING_H
 #define _RING_H
 
-#include <stdlib.h>
+#include <stdint.h>
 
 struct ring {
-    // start, end < size
-    // buffer is empty when start == end, so max capacity is (size - 1)
     volatile size_t start;
-    volatile size_t end;
+    volatile size_t count;
+
+    // Will always be a power of 2
     size_t size;
+
+    // "Magic buffer trick": the buffer is mapped twice, so that ring_head()
+    // and ring_tail() will point to a contiguous chunk of memory.
     uint8_t *data;
+    int fd;
 };
 
-static inline int ring_init(struct ring *ring, int min_size) {
-    ring->size = min_size + 1;
-    ring->start = 0;
-    ring->end = 0;
-    ring->data = malloc(min_size);
-    return ring->data ? 0 : -1;
+int ring_init(struct ring *ring, size_t min_size);
+void ring_destroy(struct ring *ring);
+
+inline size_t ring_available(struct ring *ring) {
+    return ring->size - ring->count;
 }
 
-static inline void ring_destroy(struct ring *ring) {
-    free(ring->data);
+inline size_t ring_filled(struct ring *ring) {
+    return ring->count;
 }
 
-static inline size_t ring_available(struct ring *ring) {
-    size_t start = ring->start, end = ring->end;
-    if (end >= start)
-        start += ring->size;
-    return start - end - 1;
+inline uint8_t *ring_head(struct ring *ring) {
+    return ring->data + ring->start;
 }
 
-
-static inline size_t ring_filled(struct ring *ring) {
-    size_t start = ring->start, end = ring->end;
-    if (end < start)
-        end += ring->size;
-    return end - start;
+inline uint8_t *ring_tail(struct ring *ring) {
+    return ring->data + ((ring->start + ring->count) & (ring->size - 1));
 }
 
-
-static inline size_t ring_available_contig(struct ring *ring) {
-    if (ring->start <= ring->end)
-        return ring->size - ring->end - (ring->start == 0 ? 1 : 0);
-    else
-        return ring->start - ring->end - 1;
+inline void ring_advance_head(struct ring *ring, size_t count) {
+    ring->start = (ring->start + count) & (ring->size - 1);
+    ring->count -= count;
 }
 
-static inline void ring_advance_end(struct ring *ring, size_t count) {
-    ring->end = (ring->end + count) % ring->size;
-}
-
-static inline size_t ring_filled_contig(struct ring *ring) {
-    if (ring->start <= ring->end)
-        return ring->end - ring->start;
-    else
-        return ring->size - ring->start;
-}
-
-static inline void ring_advance_start(struct ring *ring, size_t count) {
-    ring->start = (ring->start + count) % ring->size;
+inline void ring_advance_tail(struct ring *ring, size_t count) {
+    ring->count += count;
 }
 
 #endif

@@ -5,7 +5,7 @@ INCLUDEDIR ?= $(PREFIX)/include
 CC ?= gcc
 CFLAGS += -g -Wall -Wextra -Werror -fPIC -O2
 
-LIBVCHAN_OBJS = init.o thread.o io.o
+LIBVCHAN_OBJS = init.o thread.o io.o ring.o
 LIBS = -pthread
 
 all: libvchan-socket.so vchan-socket.pc node node-select

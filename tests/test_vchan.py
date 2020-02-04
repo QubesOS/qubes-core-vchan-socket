@@ -6,15 +6,14 @@ import time
 from .vchan import VchanServer, VchanClient, \
     VCHAN_WAITING, VCHAN_DISCONNECTED, VCHAN_CONNECTED
 
+# default buffer size for server and client
+BUF_SIZE = 4096
 
 SAMPLE = b'Hello World'
 BIG_SAMPLE = bytes([
     b'abcdefghijklmnopqrstuvwxyz'[i % 26]
-    for i in range(2048)
+    for i in range(BUF_SIZE * 2)
 ])
-
-# default buffer size for server and client
-BUF_SIZE = 1024
 
 
 class VchanTestMixin():
@@ -75,12 +74,12 @@ class VchanServerTest(unittest.TestCase, VchanTestMixin):
 
     def test_buffer_space(self):
         server = self.start_server()
-        self.assertEqual(server.buffer_space(), 1024)
+        self.assertEqual(server.buffer_space(), BUF_SIZE)
         server.write(SAMPLE)
-        self.assertEqual(server.buffer_space(), 1024 - len(SAMPLE))
+        self.assertEqual(server.buffer_space(), BUF_SIZE - len(SAMPLE))
         sock = self.connect(server)
         self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)
-        self.assertEqual(server.buffer_space(), 1024)
+        self.assertEqual(server.buffer_space(), BUF_SIZE)
 
     def test_disconnect_reconnect(self):
         server = self.start_server()
@@ -118,6 +117,15 @@ class VchanBufferTest(unittest.TestCase, VchanTestMixin):
         self.assertEqual(server.read(BUF_SIZE+10), BIG_SAMPLE[:BUF_SIZE])
         self.assertEqual(server.read(10), BIG_SAMPLE[BUF_SIZE:BUF_SIZE+10])
 
+    def test_wrap_around(self):
+        server = self.start_server()
+        sock = self.connect(server)
+        sock.send(BIG_SAMPLE[:BUF_SIZE // 3])
+        self.assertEqual(server.read(BUF_SIZE // 3),
+                         BIG_SAMPLE[:BUF_SIZE // 3])
+        sock.send(BIG_SAMPLE[:BUF_SIZE])
+        self.assertEqual(server.read(BUF_SIZE),
+                         BIG_SAMPLE[:BUF_SIZE])
 
 class VchanClientTest(unittest.TestCase, VchanTestMixin):
     def test_client_connect_and_send(self):
