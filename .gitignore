@@ -1,8 +1,8 @@
-rpm/
-deb/
+rpm_spec/*.spec
 *~
 *.o
 *.so
 *.a
 *.pc
 *.pyc
+*.tar.gz
