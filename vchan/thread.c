@@ -98,6 +98,12 @@ void *libvchan__client(void *arg) {
                     perror("connect");
                     return NULL;
                 }
+                pthread_mutex_lock(&ctrl->mutex);
+                done = ctrl->shutdown;
+                pthread_mutex_unlock(&ctrl->mutex);
+                if (done)
+                    return NULL;
+
                 nanosleep(&ts, NULL);
             } else {
                 connected = 1;
