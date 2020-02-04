@@ -176,8 +176,9 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
     fds[0].fd = socket_fd;
     fds[1].fd = ctrl->user_event_pipe[0];
     fds[1].events = POLLIN;
-    int eof = 0;
-    while (!eof) {
+    int done = 0;
+    int shutdown = 0;
+    while (!done) {
         pthread_mutex_lock(&ctrl->mutex);
         fds[0].events = 0;
         if (ring_available(&ctrl->read_ring) > 0)
@@ -192,14 +193,10 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
         }
 
         pthread_mutex_lock(&ctrl->mutex);
+        shutdown = ctrl->shutdown;
 
         if (fds[1].revents & POLLIN) {
             libvchan__drain_pipe(ctrl->user_event_pipe[0]);
-        }
-
-        if (ctrl->shutdown) {
-            pthread_mutex_unlock(&ctrl->mutex);
-            return 1;
         }
 
         int notify = 0;
@@ -211,7 +208,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                 int count = read(
                     socket_fd, ring_tail(&ctrl->read_ring), size);
                 if (count == 0) {
-                    eof = 1;
+                    done = 1;
                 } else if (count < 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK)
                         count = 0;
@@ -237,7 +234,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                         count = 0;
                     else if (errno == EPIPE) {
                         count = 0;
-                        eof = 1;
+                        done = 1;
                     } else {
                         perror("write to socket");
                         pthread_mutex_unlock(&ctrl->mutex);
@@ -258,9 +255,14 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
             }
         }
 
+        // When shutting down, attempt to flush all data first.
+        if (shutdown && ring_filled(&ctrl->write_ring) == 0) {
+            done = 1;
+        }
+
         pthread_mutex_unlock(&ctrl->mutex);
     }
-    return 0;
+    return shutdown;
 }
 
 void change_state(libvchan_t *ctrl, int state) {
