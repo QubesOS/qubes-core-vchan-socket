@@ -36,7 +36,6 @@ int ring_init(struct ring *ring, size_t min_size) {
 
     ring->start = 0;
     ring->count = 0;
-    ring->data = malloc(min_size);
 
     ring->fd = memfd_create("ring_buffer", 0);
     if (ring->fd < 0) {
