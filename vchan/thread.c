@@ -224,7 +224,10 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                 } else if (count < 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK)
                         count = 0;
-                    else {
+                    else if (errno == ECONNRESET) {
+                        count = 0;
+                        done = 1;
+                    } else {
                         perror("read from socket");
                         pthread_mutex_unlock(&ctrl->mutex);
                         return 1;
