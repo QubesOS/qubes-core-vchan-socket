@@ -102,47 +102,39 @@ void *libvchan__client(void *arg) {
     ts.tv_sec = 0;
     ts.tv_nsec = CONNECT_DELAY_MS * 1000;
 
-    int done = 0;
-    while (!done) {
-        int connected = 0;
+    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (socket_fd < 0) {
+        perror("socket");
+        return NULL;
+    }
 
-        int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (socket_fd < 0) {
-            perror("socket");
+    while (connect(socket_fd, (struct sockaddr*)&addr, sizeof(addr))) {
+        if (errno != ECONNREFUSED && errno != ENOENT) {
+            perror("connect");
             return NULL;
         }
 
-        while (!connected) {
-            if (connect(socket_fd, (struct sockaddr*)&addr, sizeof(addr))) {
-                if (errno != ECONNREFUSED && errno != ENOENT) {
-                    perror("connect");
-                    return NULL;
-                }
-                pthread_mutex_lock(&ctrl->mutex);
-                done = ctrl->shutdown;
-                pthread_mutex_unlock(&ctrl->mutex);
-                if (done)
-                    return NULL;
-
-                nanosleep(&ts, NULL);
-            } else {
-                connected = 1;
-            }
-        }
-
-        if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
-            perror("fcntl socket");
+        pthread_mutex_lock(&ctrl->mutex);
+        int shutdown = ctrl->shutdown;
+        pthread_mutex_unlock(&ctrl->mutex);
+        if (shutdown)
             return NULL;
-        }
 
-        change_state(ctrl, VCHAN_CONNECTED);
-        done = comm_loop(ctrl, socket_fd);
-        change_state(ctrl, VCHAN_DISCONNECTED);
+        nanosleep(&ts, NULL);
+    }
 
-        if (close(socket_fd)) {
-            perror("close socket");
-            return NULL;
-        }
+    if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
+        perror("fcntl socket");
+        return NULL;
+    }
+
+    change_state(ctrl, VCHAN_CONNECTED);
+    comm_loop(ctrl, socket_fd);
+    change_state(ctrl, VCHAN_DISCONNECTED);
+
+    if (close(socket_fd)) {
+        perror("close socket");
+        return NULL;
     }
 
     return NULL;
