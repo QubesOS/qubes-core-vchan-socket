@@ -127,12 +127,16 @@ int libvchan_wait(libvchan_t *ctrl) {
 }
 
 int libvchan__drain_pipe(int fd) {
-    uint8_t buf[16];
-    if (read(fd, buf, 16) < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            perror("read socket pipe");
-            return -1;
-        }
+    const int BUF_SIZE = 16;
+
+    uint8_t buf[BUF_SIZE];
+    int ret;
+    do {
+        ret = read(fd, buf, BUF_SIZE);
+    } while (ret == BUF_SIZE);
+    if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        perror("read drain_pipe");
+        return -1;
     }
     return 0;
 }
