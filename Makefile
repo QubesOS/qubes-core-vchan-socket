@@ -1,5 +1,5 @@
 PREFIX ?= /usr
-LIBDIR ?= $(PREFIX)/lib
+LIBDIR ?= $(PREFIX)/lib64
 INCLUDEDIR ?= $(PREFIX)/include
 
 help:
