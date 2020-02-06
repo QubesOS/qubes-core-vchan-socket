@@ -149,7 +149,7 @@ static void server_loop(libvchan_t *ctrl, int server_fd) {
         fds[0].fd = server_fd;
         fds[0].events = POLLIN;
         while (!connected) {
-            if (poll(fds, 1, CONNECT_DELAY_MS) < 0) {
+            if (poll(fds, 1, CONNECT_DELAY_MS) < 0 && errno != EINTR) {
                 perror("poll server_fd");
                 return;
             }
@@ -161,10 +161,13 @@ static void server_loop(libvchan_t *ctrl, int server_fd) {
             connected = fds[0].revents & POLLIN;
         }
 
-        int socket_fd = accept(server_fd, NULL, NULL);
-        if (socket_fd < 0) {
-            perror("accept");
-            return;
+        int socket_fd = -1;
+        while (socket_fd < 0) {
+            socket_fd = accept(server_fd, NULL, NULL);
+            if (socket_fd < 0 && errno != EINTR) {
+                perror("accept");
+                return;
+            }
         }
 
         if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
@@ -199,7 +202,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
             fds[0].events |= POLLOUT;
         pthread_mutex_unlock(&ctrl->mutex);
 
-        if (poll(fds, 2, -1) < 0) {
+        if (poll(fds, 2, -1) < 0 && errno != EINTR) {
             perror("poll comm_loop");
             return 1;
         }
