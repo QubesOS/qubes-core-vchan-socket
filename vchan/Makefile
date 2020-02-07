@@ -5,7 +5,7 @@ INCLUDEDIR ?= $(PREFIX)/include
 CC ?= gcc
 CFLAGS += -g -Wall -Wextra -Werror -fPIC -O2
 
-LIBVCHAN_OBJS = init.o thread.o io.o ring.o
+LIBVCHAN_OBJS = init.o socket.o io.o ring.o
 LIBS = -pthread
 
 all: libvchan-socket.so vchan-socket.pc node node-select
@@ -25,7 +25,7 @@ node-select: node-select.o libvchan-socket.a
 	$(CC) $(LDFLAGS) $(LIBS) -o $@ $^
 
 clean:
-	rm -f *.o *so *~ client server node node-select
+	rm -f *.o *.so *.a *~ client server node node-select
 
 vchan-socket.pc: vchan-socket.pc.in
 	sed -e "s/@VERSION@/`cat ../version`/" \

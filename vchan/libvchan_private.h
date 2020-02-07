@@ -30,6 +30,8 @@
 
 struct libvchan {
     char *socket_path;
+    // server socket (for server), connection (for client)
+    int socket_fd;
 
     // Controls access to rings and state
     pthread_mutex_t mutex;
@@ -60,5 +62,7 @@ struct libvchan {
 void *libvchan__server(void *arg);
 void *libvchan__client(void *arg);
 int libvchan__drain_pipe(int fd);
+int libvchan__listen(const char *socket_path);
+int libvchan__connect(const char *socket_path);
 
 #endif

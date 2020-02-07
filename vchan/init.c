@@ -46,6 +46,7 @@ static libvchan_t *init(
         return NULL;
 
     memset(ctrl, 0, sizeof(*ctrl));
+    ctrl->socket_fd = -1;
 
     const char *socket_dir = getenv("VCHAN_SOCKET_DIR");
     if (!socket_dir)
@@ -76,8 +77,6 @@ static libvchan_t *init(
         return NULL;
     }
 
-    ctrl->state = VCHAN_DISCONNECTED;
-
     return ctrl;
 }
 
@@ -87,6 +86,14 @@ libvchan_t *libvchan_server_init(int domain, int port, size_t read_min, size_t w
     if (!ctrl) {
         return NULL;
     }
+
+    ctrl->socket_fd = libvchan__listen(ctrl->socket_path);
+    if (ctrl->socket_fd < 0) {
+        libvchan_close(ctrl);
+        return NULL;
+    }
+
+    ctrl->state = VCHAN_WAITING;
 
     if (pthread_create(&ctrl->thread, NULL, libvchan__server, ctrl)) {
         perror("pthread_create");
@@ -104,6 +111,14 @@ libvchan_t *libvchan_client_init(int domain, int port) {
     if (!ctrl) {
         return NULL;
     }
+
+    ctrl->socket_fd = libvchan__connect(ctrl->socket_path);
+    if (ctrl->socket_fd < 0) {
+        libvchan_close(ctrl);
+        return NULL;
+    }
+
+    ctrl->state = VCHAN_CONNECTED;
 
     if (pthread_create(&ctrl->thread, NULL, libvchan__client, ctrl)) {
         perror("pthread_create");
@@ -130,6 +145,9 @@ void libvchan_close(libvchan_t *ctrl) {
 
     if (ctrl->socket_path)
         free(ctrl->socket_path);
+
+    if (ctrl->socket_fd != -1)
+        close(ctrl->socket_fd);
 
     if (ctrl->user_event_pipe[0]) {
         close(ctrl->user_event_pipe[0]);

@@ -38,6 +38,44 @@ static void server_loop(libvchan_t *ctrl, int server_fd);
 static int comm_loop(libvchan_t *ctrl, int socket_fd);
 static void change_state(libvchan_t *ctrl, int state);
 
+int libvchan__listen(const char *socket_path) {
+    int server_fd;
+
+    if (unlink(socket_path) && errno != ENOENT) {
+        perror("unlink");
+        return -1;
+    }
+
+    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("socket");
+        return -1;
+    }
+
+    if (fcntl(server_fd, F_SETFL, O_NONBLOCK)) {
+        perror("fcntl server_fd");
+        close(server_fd);
+        return -1;
+    }
+
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr))) {
+        perror("bind");
+        close(server_fd);
+        return -1;
+    }
+    if (listen(server_fd, 1)) {
+        perror("listen");
+        close(server_fd);
+        return -1;
+    }
+
+    return server_fd;
+}
+
 void *libvchan__server(void *arg) {
     sigset_t set;
     sigfillset(&set);
@@ -47,39 +85,7 @@ void *libvchan__server(void *arg) {
     }
 
     libvchan_t *ctrl = arg;
-
-    if (unlink(ctrl->socket_path) && errno != ENOENT) {
-        perror("unlink");
-        return NULL;
-    }
-
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("socket");
-        return NULL;
-    }
-
-    if (fcntl(server_fd, F_SETFL, O_NONBLOCK)) {
-        perror("fcntl server_fd");
-        return NULL;
-    }
-
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, ctrl->socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr))) {
-        perror("bind");
-        return NULL;
-    }
-    if (listen(server_fd, 1)) {
-        perror("listen");
-        return NULL;
-    }
-
-    change_state(ctrl, VCHAN_WAITING);
-    server_loop(ctrl, server_fd);
-
+    server_loop(ctrl, ctrl->socket_fd);
     return NULL;
 }
 
@@ -92,11 +98,17 @@ void *libvchan__client(void *arg) {
     }
 
     libvchan_t *ctrl = arg;
+    comm_loop(ctrl, ctrl->socket_fd);
+    change_state(ctrl, VCHAN_DISCONNECTED);
+    return NULL;
+}
+
+int libvchan__connect(const char *socket_path) {
 
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, ctrl->socket_path, sizeof(addr.sun_path) - 1);
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
 
     struct timespec ts;
     ts.tv_sec = 0;
@@ -105,39 +117,25 @@ void *libvchan__client(void *arg) {
     int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (socket_fd < 0) {
         perror("socket");
-        return NULL;
+        return -1;
     }
 
     while (connect(socket_fd, (struct sockaddr*)&addr, sizeof(addr))) {
         if (errno != ECONNREFUSED && errno != ENOENT) {
             perror("connect");
-            return NULL;
+            close(socket_fd);
+            return -1;
         }
-
-        pthread_mutex_lock(&ctrl->mutex);
-        int shutdown = ctrl->shutdown;
-        pthread_mutex_unlock(&ctrl->mutex);
-        if (shutdown)
-            return NULL;
-
         nanosleep(&ts, NULL);
     }
 
     if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
         perror("fcntl socket");
-        return NULL;
+        close(socket_fd);
+        return -1;
     }
 
-    change_state(ctrl, VCHAN_CONNECTED);
-    comm_loop(ctrl, socket_fd);
-    change_state(ctrl, VCHAN_DISCONNECTED);
-
-    if (close(socket_fd)) {
-        perror("close socket");
-        return NULL;
-    }
-
-    return NULL;
+    return socket_fd;
 }
 
 static void server_loop(libvchan_t *ctrl, int server_fd) {
