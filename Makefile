@@ -4,6 +4,7 @@ INCLUDEDIR ?= $(PREFIX)/include
 
 help:
 	@echo "make all                   -- build binaries"
+	@echo "make install               -- install"
 	@echo "make clean                 -- cleanup"
 
 all:
