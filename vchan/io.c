@@ -117,9 +117,11 @@ int libvchan_wait(libvchan_t *ctrl) {
     struct pollfd fds[1];
     fds[0].fd = ctrl->socket_event_pipe[0];
     fds[0].events = POLLIN;
-    if (poll(fds, 1, -1) < 0) {
-        perror("poll wait");
-        return -1;
+    while (poll(fds, 1, -1) < 0) {
+        if (errno != EINTR) {
+            perror("poll wait");
+            return -1;
+        }
     }
 
     libvchan__drain_pipe(ctrl->socket_event_pipe[0]);
