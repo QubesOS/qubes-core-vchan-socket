@@ -54,6 +54,7 @@ rm -f %{name}-%{version}
 
 %files
 %{_libdir}/libvchan-socket.so
+%{_libdir}/libvchan-socket-simple.so
 
 %package devel
 Summary:        Include files for qubes vchan libraries, socket version
@@ -67,6 +68,8 @@ Requires:       pkgconfig
 %files devel
 %{_includedir}/vchan-socket/libvchan.h
 %{_libdir}/pkgconfig/vchan-socket.pc
+%{_includedir}/vchan-socket-simple/libvchan.h
+%{_libdir}/pkgconfig/vchan-socket-simple.pc
 
 %changelog
 @CHANGELOG@

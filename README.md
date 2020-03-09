@@ -37,6 +37,23 @@ To (mostly) keep libvchan's semantics, `libvchan-socket` starts a separate
 thread responsible for connection management and socket I/O. Data is exchanged
 using a pair of ring buffers.
 
+## `libvchan-socket-simple`
+
+`libvchan-socket-simple` is a simpler implementation that does not use a
+separate thread. It should be less error-prone, and make debugging (e.g. with
+`strace`) easier, but it has limitations that mean programs will need to be
+adapted:
+
+* `libvchan_buffer_space()` doesn't tell you how much data you can write, it just
+  returns 1 if you can write anything at all. That means you have to do the
+  buffering yourself.
+
+* Sending will always block if you are disconnected.
+
+* `libvchan_wait` currently waits only for reads to unblock, now
+  writes. Similarly, read events on `libvchan_fd_for_select()` will not tell
+  you anything about writes.
+
 ## Tests
 
 See `tests/` and `run-tests` script. The tests are written in Python and use

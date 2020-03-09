@@ -37,8 +37,10 @@ BIG_SAMPLE = bytes([
 
 
 class VchanTestMixin():
+    lib = 'vchan/libvchan-socket.so'
+
     def start_server(self):
-        server = VchanServer(1, 2, 42)
+        server = VchanServer(self.lib, 1, 2, 42)
         server.wait_for_state(VCHAN_WAITING)
         self.addCleanup(server.close)
         return server
@@ -50,7 +52,7 @@ class VchanTestMixin():
         return sock
 
     def start_client(self):
-        return VchanClient(2, 1, 42)
+        return VchanClient(self.lib, 2, 1, 42)
 
 
 class VchanServerTest(unittest.TestCase, VchanTestMixin):
@@ -113,6 +115,24 @@ class VchanServerTest(unittest.TestCase, VchanTestMixin):
         self.assertEqual(sock2.recv(len(SAMPLE)), SAMPLE)
 
 
+class SimpleVchanServerTest(VchanServerTest):
+    lib = 'vchan-simple/libvchan-socket-simple.so'
+
+    def test_buffer_space(self):
+        server = self.start_server()
+        self.assertEqual(server.buffer_space(), 0)
+        sock = self.connect(server)
+        server.wait_for_state(VCHAN_CONNECTED)
+        self.assertEqual(server.buffer_space(), 1)
+        sock.close()
+        server.wait_for_state(VCHAN_DISCONNECTED)
+        self.assertEqual(server.buffer_space(), 0)
+
+    @unittest.skip('not possible in simple implementation')
+    def test_write_then_connect(self):
+        pass
+
+
 class VchanBufferTest(unittest.TestCase, VchanTestMixin):
     def test_read_less(self):
         server = self.start_server()
@@ -147,9 +167,18 @@ class VchanBufferTest(unittest.TestCase, VchanTestMixin):
         self.assertEqual(server.read(BUF_SIZE),
                          BIG_SAMPLE[:BUF_SIZE])
 
+
+class SimpleVchanBufferTest(VchanBufferTest):
+    lib = 'vchan-simple/libvchan-socket-simple.so'
+
+
 class VchanClientTest(unittest.TestCase, VchanTestMixin):
     def test_client_connect_and_send(self):
         server = self.start_server()
         client = self.start_client()
         client.write(SAMPLE)
         self.assertEqual(server.read(len(SAMPLE)), SAMPLE)
+
+
+class SimpleVchanClientTest(VchanClientTest):
+    lib = 'vchan-simple/libvchan-socket-simple.so'

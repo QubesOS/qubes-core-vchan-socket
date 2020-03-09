@@ -29,7 +29,7 @@ VCHAN_WAITING = 2
 
 
 class VchanBase:
-    def __init__(self):
+    def __init__(self, lib):
         self.ffi = FFI()
 
         self.ffi.cdef("""
@@ -52,8 +52,7 @@ int libvchan_buffer_space(libvchan_t *ctrl);
 """)
 
         self.lib = self.ffi.dlopen(
-            os.path.join(os.path.dirname(__file__), '..', 'vchan',
-                         'libvchan-socket.so'))
+            os.path.join(os.path.dirname(__file__), '..', lib))
         self.ctrl = None
 
     def close(self):
@@ -131,12 +130,13 @@ class VchanException(Exception):
 class VchanServer(VchanBase):
     def __init__(
             self,
+            lib,
             domain=0, remote_domain=0, port=0,
             socket_dir='/tmp',
             read_min=1024,
             write_min=1024,
     ):
-        super().__init__()
+        super().__init__(lib)
         os.environ['VCHAN_DOMAIN'] = str(domain)
         os.environ['VCHAN_SOCKET_DIR'] = socket_dir
 
@@ -152,10 +152,11 @@ class VchanServer(VchanBase):
 class VchanClient(VchanBase):
     def __init__(
             self,
+            lib,
             domain=0, remote_domain=0, port=0,
             socket_dir='/tmp',
     ):
-        super().__init__()
+        super().__init__(lib)
         os.environ['VCHAN_DOMAIN'] = str(domain)
         os.environ['VCHAN_SOCKET_DIR'] = socket_dir
 
