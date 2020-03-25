@@ -62,8 +62,13 @@ static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_siz
         if (libvchan_wait(ctrl) < 0) {
             return -1;
         }
+        if (libvchan_is_open(ctrl) == VCHAN_DISCONNECTED)
+            break;
         size = ring_filled(&ctrl->read_ring);
     }
+
+    if (size < min_size)
+        return -1;
 
     if (size > max_size)
         size = max_size;
@@ -101,10 +106,14 @@ static int do_write(libvchan_t *ctrl, const void *data,
 
             wait_for_write(ctrl);
             if (ctrl->socket_fd < 0)
-                continue;
-        } else
+                break;
+        } else if (libvchan_is_open(ctrl) == VCHAN_DISCONNECTED)
+            break;
+        else
             libvchan_wait(ctrl);
     }
+    if (size < min_size)
+        return -1;
     return size;
 }
 
@@ -117,9 +126,9 @@ static int do_write(libvchan_t *ctrl, const void *data,
 int libvchan_wait(libvchan_t *ctrl) {
     if (ctrl->socket_fd > 0)
         return wait_for_read(ctrl);
-    if (ctrl->server_fd > 0)
+    if (ctrl->server_fd > 0 && ctrl->is_new)
         return wait_for_connection(ctrl);
-    return -1;
+    return 0;
 }
 
 // Wait for socket to become readable (or disconnection)

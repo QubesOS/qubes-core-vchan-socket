@@ -53,6 +53,8 @@ static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_siz
 
     size_t size = ring_filled(&ctrl->read_ring);
     while (size < min_size) {
+        if (ctrl->state == VCHAN_DISCONNECTED)
+            break;
         pthread_mutex_unlock(&ctrl->mutex);
         if (libvchan_wait(ctrl) < 0) {
             return -1;
@@ -60,6 +62,10 @@ static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_siz
         pthread_mutex_lock(&ctrl->mutex);
         size = ring_filled(&ctrl->read_ring);
     }
+
+    // Disconnected too early?
+    if (size < min_size)
+        return -1;
 
     libvchan__drain_pipe(ctrl->socket_event_pipe[0]);
 
@@ -87,6 +93,8 @@ static int do_write(libvchan_t *ctrl, const void *data,
 
     size_t size = ring_available(&ctrl->write_ring);
     while (size < min_size) {
+        if (ctrl->state == VCHAN_DISCONNECTED)
+            break;
         pthread_mutex_unlock(&ctrl->mutex);
         if (libvchan_wait(ctrl) < 0) {
             return -1;
@@ -94,6 +102,10 @@ static int do_write(libvchan_t *ctrl, const void *data,
         pthread_mutex_lock(&ctrl->mutex);
         size = ring_available(&ctrl->write_ring);
     }
+
+    // Disconnected too early?
+    if (size < min_size)
+        return -1;
 
     if (size > max_size) {
         size = max_size;

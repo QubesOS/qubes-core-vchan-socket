@@ -103,17 +103,6 @@ class VchanServerTest(unittest.TestCase, VchanTestMixin):
         self.assertEqual(sock.recv(len(SAMPLE)), SAMPLE)
         self.assertEqual(server.buffer_space(), BUF_SIZE)
 
-    def test_disconnect_reconnect(self):
-        server = self.start_server()
-        sock = self.connect(server)
-        sock.close()
-        server.wait_for_state(VCHAN_DISCONNECTED)
-        sock2 = self.connect(server)
-        sock2.send(SAMPLE)
-        server.write(SAMPLE)
-        self.assertEqual(server.read(len(SAMPLE)), SAMPLE)
-        self.assertEqual(sock2.recv(len(SAMPLE)), SAMPLE)
-
 
 class SimpleVchanServerTest(VchanServerTest):
     lib = 'vchan-simple/libvchan-socket-simple.so'

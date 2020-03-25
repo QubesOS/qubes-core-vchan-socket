@@ -34,8 +34,8 @@
 
 #define CONNECT_DELAY_MS 100
 
-static void server_loop(libvchan_t *ctrl, int server_fd);
-static int comm_loop(libvchan_t *ctrl, int socket_fd);
+static void run_server(libvchan_t *ctrl, int server_fd);
+static void comm_loop(libvchan_t *ctrl, int socket_fd);
 static void change_state(libvchan_t *ctrl, int state);
 
 int libvchan__listen(const char *socket_path) {
@@ -85,7 +85,7 @@ void *libvchan__server(void *arg) {
     }
 
     libvchan_t *ctrl = arg;
-    server_loop(ctrl, ctrl->socket_fd);
+    run_server(ctrl, ctrl->socket_fd);
     return NULL;
 }
 
@@ -138,53 +138,50 @@ int libvchan__connect(const char *socket_path) {
     return socket_fd;
 }
 
-static void server_loop(libvchan_t *ctrl, int server_fd) {
-    int done = 0;
-    while (!done) {
-        int connected = 0;
+static void run_server(libvchan_t *ctrl, int server_fd) {
+    int done;
+    int connected = 0;
 
-        struct pollfd fds[1];
-        fds[0].fd = server_fd;
-        fds[0].events = POLLIN;
-        while (!connected) {
-            if (poll(fds, 1, CONNECT_DELAY_MS) < 0 && errno != EINTR) {
-                perror("poll server_fd");
-                return;
-            }
-            pthread_mutex_lock(&ctrl->mutex);
-            done = ctrl->shutdown;
-            pthread_mutex_unlock(&ctrl->mutex);
-            if (done)
-                return;
-            connected = fds[0].revents & POLLIN;
-        }
-
-        int socket_fd = -1;
-        while (socket_fd < 0) {
-            socket_fd = accept(server_fd, NULL, NULL);
-            if (socket_fd < 0 && errno != EINTR) {
-                perror("accept");
-                return;
-            }
-        }
-
-        if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
-            perror("fcntl socket");
+    struct pollfd fds[1];
+    fds[0].fd = server_fd;
+    fds[0].events = POLLIN;
+    while (!connected) {
+        if (poll(fds, 1, CONNECT_DELAY_MS) < 0 && errno != EINTR) {
+            perror("poll server_fd");
             return;
         }
+        pthread_mutex_lock(&ctrl->mutex);
+        done = ctrl->shutdown;
+        pthread_mutex_unlock(&ctrl->mutex);
+        if (done)
+            return;
+        connected = fds[0].revents & POLLIN;
+    }
 
-        change_state(ctrl, VCHAN_CONNECTED);
-        done = comm_loop(ctrl, socket_fd);
-        change_state(ctrl, VCHAN_DISCONNECTED);
-
-        if (close(socket_fd)) {
-            perror("close socket");
+    int socket_fd = -1;
+    while (socket_fd < 0) {
+        socket_fd = accept(server_fd, NULL, NULL);
+        if (socket_fd < 0 && errno != EINTR) {
+            perror("accept");
             return;
         }
     }
+
+    if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
+        perror("fcntl socket");
+        return;
+    }
+
+    change_state(ctrl, VCHAN_CONNECTED);
+    comm_loop(ctrl, socket_fd);
+    change_state(ctrl, VCHAN_DISCONNECTED);
+
+    if (close(socket_fd)) {
+        perror("close socket");
+    }
 }
 
-static int comm_loop(libvchan_t *ctrl, int socket_fd) {
+static void comm_loop(libvchan_t *ctrl, int socket_fd) {
     struct pollfd fds[2];
     fds[0].fd = socket_fd;
     fds[1].fd = ctrl->user_event_pipe[0];
@@ -202,7 +199,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
 
         if (poll(fds, 2, -1) < 0 && errno != EINTR) {
             perror("poll comm_loop");
-            return 1;
+            return;
         }
 
         pthread_mutex_lock(&ctrl->mutex);
@@ -231,7 +228,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                     } else {
                         perror("read from socket");
                         pthread_mutex_unlock(&ctrl->mutex);
-                        return 1;
+                        return;
                     }
                 } else
                     notify = 1;
@@ -254,7 +251,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
                     } else {
                         perror("write to socket");
                         pthread_mutex_unlock(&ctrl->mutex);
-                        return 1;
+                        return;
                     }
                 } else if (count > 0)
                     notify = 1;
@@ -267,7 +264,7 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
             if (write(ctrl->socket_event_pipe[1], &byte, 1) != 1) {
                 perror("write");
                 pthread_mutex_unlock(&ctrl->mutex);
-                return 1;
+                return;
             }
         }
 
@@ -278,7 +275,6 @@ static int comm_loop(libvchan_t *ctrl, int socket_fd) {
 
         pthread_mutex_unlock(&ctrl->mutex);
     }
-    return shutdown;
 }
 
 void change_state(libvchan_t *ctrl, int state) {
