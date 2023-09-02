@@ -35,6 +35,7 @@ struct libvchan {
     // distinguish VCHAN_WAITING vs. VCHAN_DISCONNECTED
     bool is_new;
     struct ring read_ring;
+    int connect_watch_fd;
 };
 
 int libvchan__listen(const char *socket_path);

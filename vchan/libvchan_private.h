@@ -57,6 +57,9 @@ struct libvchan {
     // volatile EVTCHN state;
     struct ring read_ring;
     struct ring write_ring;
+
+    // used for cleanup after libvchan_client_init_async()
+    int connect_watch_fd;
 };
 
 void *libvchan__server(void *arg);

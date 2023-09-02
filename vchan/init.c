@@ -130,6 +130,33 @@ libvchan_t *libvchan_client_init(int domain, int port) {
     return ctrl;
 }
 
+libvchan_t *libvchan_client_init_async(int domain, int port, int *watch_fd) {
+    int pipe_fds[2];
+    libvchan_t *ctrl;
+
+    ctrl = libvchan_client_init(domain, port);
+    
+    if (!ctrl)
+        return NULL;
+
+    if (pipe(pipe_fds) < 0) {
+        libvchan_close(ctrl);
+        return NULL;
+    }
+
+    write(pipe_fds[1], "a", 1);
+    close(pipe_fds[1]);
+    ctrl->connect_watch_fd = pipe_fds[0];
+    *watch_fd = pipe_fds[0];
+    return ctrl;
+}
+
+int libvchan_client_init_async_finish(libvchan_t *ctrl,
+                                      __attribute__((unused)) bool blocking) {
+    close(ctrl->connect_watch_fd);
+    return 0;
+}
+
 void libvchan_close(libvchan_t *ctrl) {
     if (ctrl->thread_started) {
         pthread_mutex_lock(&ctrl->mutex);
