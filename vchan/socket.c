@@ -46,15 +46,9 @@ int libvchan__listen(const char *socket_path) {
         return -1;
     }
 
-    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    server_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
     if (server_fd < 0) {
         perror("socket");
-        return -1;
-    }
-
-    if (fcntl(server_fd, F_SETFL, O_NONBLOCK)) {
-        perror("fcntl server_fd");
-        close(server_fd);
         return -1;
     }
 
@@ -114,7 +108,7 @@ int libvchan__connect(const char *socket_path) {
     ts.tv_sec = 0;
     ts.tv_nsec = CONNECT_DELAY_MS * 1000;
 
-    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
     if (socket_fd < 0) {
         perror("socket");
         return -1;

@@ -37,7 +37,7 @@ int ring_init(struct ring *ring, size_t min_size) {
     ring->start = 0;
     ring->count = 0;
 
-    ring->fd = memfd_create("ring_buffer", 0);
+    ring->fd = memfd_create("ring_buffer", MFD_CLOEXEC);
     if (ring->fd < 0) {
         perror("memfd_create");
         return -1;

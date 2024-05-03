@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 		fd_set rfds;
 		FD_ZERO(&rfds);
 		FD_SET(0, &rfds);
-        libvchan_fd = libvchan_fd_for_select(ctrl);
+                libvchan_fd = libvchan_fd_for_select(ctrl);
 		FD_SET(libvchan_fd, &rfds);
 //		libvchan_prepare_to_select(ctrl);
 		ret = select(libvchan_fd + 1, &rfds, NULL, NULL, NULL);

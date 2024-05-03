@@ -19,6 +19,7 @@
  *
  */
 
+#define _GNU_SOURCE
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -166,14 +167,9 @@ static int wait_for_connection(libvchan_t *ctrl) {
     assert(ctrl->server_fd >= 0);
     assert(ctrl->socket_fd < 0);
 
-    int socket_fd = accept(ctrl->server_fd, NULL, NULL);
+    int socket_fd = accept4(ctrl->server_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
     if (socket_fd < 0) {
         perror("accept");
-        return -1;
-    }
-
-    if (fcntl(socket_fd, F_SETFL, O_NONBLOCK)) {
-        perror("fcntl socket");
         return -1;
     }
 

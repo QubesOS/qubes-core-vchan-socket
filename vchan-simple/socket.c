@@ -76,7 +76,7 @@ int libvchan__connect(const char *socket_path) {
     ts.tv_sec = 0;
     ts.tv_nsec = CONNECT_DELAY_MS * 1000;
 
-    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
     if (socket_fd < 0) {
         perror("socket");
         return -1;

@@ -55,10 +55,12 @@ static libvchan_t *init(
     if (asprintf(&ctrl->socket_path, "%s/vchan.%d.%d.%d.sock",
                  socket_dir, server_domain, client_domain, port) < 0) {
         perror("asprintf");
+        free(ctrl);
+        return NULL;
     }
 
-    if (pipe2(ctrl->user_event_pipe, O_NONBLOCK) ||
-        pipe2(ctrl->socket_event_pipe, O_NONBLOCK)) {
+    if (pipe2(ctrl->user_event_pipe, O_NONBLOCK|O_CLOEXEC) ||
+        pipe2(ctrl->socket_event_pipe, O_NONBLOCK|O_CLOEXEC)) {
         perror("pipe");
         libvchan_close(ctrl);
         return NULL;
