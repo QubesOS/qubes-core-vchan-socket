@@ -106,7 +106,7 @@ static int do_write(libvchan_t *ctrl, const void *data,
     }
 
     // Disconnected too early?
-    if (size < min_size) {
+    if (size < min_size || ctrl->state == VCHAN_DISCONNECTED) {
         pthread_mutex_unlock(&ctrl->mutex);
         return -1;
     }
