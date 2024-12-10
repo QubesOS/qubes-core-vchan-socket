@@ -64,8 +64,10 @@ static int do_read(libvchan_t *ctrl, void *data, size_t min_size, size_t max_siz
     }
 
     // Disconnected too early?
-    if (size < min_size)
+    if (size < min_size) {
+        pthread_mutex_unlock(&ctrl->mutex);
         return -1;
+    }
 
     libvchan__drain_pipe(ctrl->socket_event_pipe[0]);
 
@@ -104,8 +106,10 @@ static int do_write(libvchan_t *ctrl, const void *data,
     }
 
     // Disconnected too early?
-    if (size < min_size)
+    if (size < min_size) {
+        pthread_mutex_unlock(&ctrl->mutex);
         return -1;
+    }
 
     if (size > max_size) {
         size = max_size;
